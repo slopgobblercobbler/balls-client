@@ -3,28 +3,32 @@ package com.ballsclient.fabric263.gui;
 import com.ballsclient.core.BallsClientCore;
 import com.ballsclient.core.module.Category;
 import com.ballsclient.core.module.Module;
-import com.ballsclient.core.setting.*;
-import net.minecraft.client.gui.GuiGraphics;
+import com.ballsclient.core.setting.BooleanSetting;
+import com.ballsclient.core.setting.ModeSetting;
+import com.ballsclient.core.setting.NumberSetting;
+import com.ballsclient.core.setting.Setting;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 
 public class BallsClientConfigScreen extends Screen {
+    private static final int MODULES_PER_PAGE = 8;
+
     private final Screen parent;
     private Category currentCategory = null; // null = ALL
     private String searchText = "";
+    private int currentPage = 0;
+    private Module settingsModule = null; // When non-null, viewing settings for this module
+
+    private final List<Module> filteredModules = new ArrayList<>();
     private EditBox searchBox;
-    private int scrollY = 0;
-    private Module settingsModule = null; // Module currently expanded for settings editing
-
-    private final List<Module> displayModules = new ArrayList<>();
-    private final List<CategoryButton> categoryButtons = new ArrayList<>();
-
-    private record CategoryButton(Category category, String label, int x, int y, int width, int height) {}
 
     public BallsClientConfigScreen(Screen parent) {
         super(Component.literal("BallsClient Dashboard"));
@@ -34,45 +38,21 @@ public class BallsClientConfigScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        rebuildUI();
+    }
+
+    private void rebuildUI() {
         this.clearWidgets();
-        this.categoryButtons.clear();
 
-        // 1. Search Box at top-center (Y = 32)
-        int searchWidth = 240;
-        int searchX = this.width / 2 - searchWidth / 2;
-        searchBox = new EditBox(this.font, searchX, 32, searchWidth, 18, Component.literal("Search..."));
-        searchBox.setResponder(text -> {
-            this.searchText = text != null ? text.trim().toLowerCase() : "";
-            this.scrollY = 0;
-            updateFilteredModules();
-        });
-        this.addRenderableWidget(searchBox);
-
-        // 2. Done / Close Button at bottom
-        int btnWidth = 120;
-        this.addRenderableWidget(Button.builder(Component.literal("Save & Close"), b -> this.onClose())
-                .bounds(this.width / 2 - btnWidth / 2, this.height - 26, btnWidth, 20)
-                .build());
-
-        // 3. Category Buttons across the top bar (Y = 8)
-        Category[] cats = Category.values();
-        int totalTabs = cats.length + 1; // +1 for "ALL"
-        int pad = 4;
-        int tabW = Math.max(48, (this.width - 20 - (totalTabs * pad)) / totalTabs);
-        int totalWidth = totalTabs * (tabW + pad);
-        int startX = Math.max(10, (this.width - totalWidth) / 2);
-
-        // "ALL" Tab
-        categoryButtons.add(new CategoryButton(null, "ALL", startX, 8, tabW, 18));
-        for (int i = 0; i < cats.length; i++) {
-            categoryButtons.add(new CategoryButton(cats[i], cats[i].name(), startX + (i + 1) * (tabW + pad), 8, tabW, 18));
+        if (settingsModule != null) {
+            buildSettingsUI();
+        } else {
+            buildMainUI();
         }
-
-        updateFilteredModules();
     }
 
     private void updateFilteredModules() {
-        displayModules.clear();
+        filteredModules.clear();
         if (BallsClientCore.getModuleManager() == null) {
             return;
         }
@@ -90,291 +70,239 @@ public class BallsClientConfigScreen extends Screen {
                     continue;
                 }
             }
-            displayModules.add(m);
+            filteredModules.add(m);
         }
 
-        // Sort: enabled first, then alphabetically
-        displayModules.sort(Comparator.comparing((Module m) -> !m.isEnabled())
+        filteredModules.sort(Comparator.comparing((Module m) -> !m.isEnabled())
                 .thenComparing(Module::getName));
     }
 
-    private int countEnabled() {
-        if (BallsClientCore.getModuleManager() == null) return 0;
-        int c = 0;
-        for (Module m : BallsClientCore.getModuleManager().getModules()) {
-            if (m.isEnabled()) c++;
-        }
-        return c;
-    }
+    private void buildMainUI() {
+        updateFilteredModules();
 
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Dark translucent gradient background
-        graphics.fillGradient(0, 0, this.width, this.height, 0xD0080812, 0xF00D0D18);
-
-        // Header panel background
-        graphics.fill(0, 0, this.width, 56, 0xDD12121E);
-        graphics.fill(0, 55, this.width, 56, 0xFF6366F1); // Accent separator line
-
-        // Bottom panel background
-        graphics.fill(0, this.height - 30, this.width, this.height, 0xDD12121E);
-        graphics.fill(0, this.height - 31, this.width, this.height - 30, 0xFF312E81);
-
-        // Title and client info
         int totalModules = BallsClientCore.getModuleManager() != null ? BallsClientCore.getModuleManager().getModules().size() : 0;
-        graphics.drawString(this.font, "§d§lBallsClient§r §7v1.0.0", 16, 36, 0xFFFFFF);
-        graphics.drawString(this.font, "§8" + totalModules + " Modules §7(" + countEnabled() + " ON)", this.width - 150, 36, 0xAAAAAA);
-
-        // Render Category Tab Buttons
-        for (CategoryButton cb : categoryButtons) {
-            boolean isSelected = (cb.category == this.currentCategory);
-            boolean isHovered = mouseX >= cb.x && mouseX <= cb.x + cb.width && mouseY >= cb.y && mouseY <= cb.y + cb.height;
-
-            int bgColor = isSelected ? 0xFF6366F1 : (isHovered ? 0xFF2D2B52 : 0xFF1E1D36);
-            int textColor = isSelected ? 0xFFFFFF : (isHovered ? 0xE0E0E0 : 0x9E9EB8);
-
-            graphics.fill(cb.x, cb.y, cb.x + cb.width, cb.y + cb.height, bgColor);
-            graphics.drawCenteredString(this.font, cb.label, cb.x + cb.width / 2, cb.y + 5, textColor);
-        }
-
-        // Render Module Cards list
-        int listTop = 60;
-        int listBottom = this.height - 34;
-        int cardHeight = 34;
-        int cardSpacing = 4;
-        int cardWidth = Math.min(520, this.width - 40);
-        int cardX = (this.width - cardWidth) / 2;
-
-        graphics.enableScissor(0, listTop, this.width, listBottom);
-
-        int currentY = listTop + 4 - scrollY;
-        for (Module m : displayModules) {
-            if (currentY + cardHeight >= listTop && currentY <= listBottom) {
-                renderModuleCard(graphics, m, cardX, currentY, cardWidth, cardHeight, mouseX, mouseY);
+        int enabledModules = 0;
+        if (BallsClientCore.getModuleManager() != null) {
+            for (Module m : BallsClientCore.getModuleManager().getModules()) {
+                if (m.isEnabled()) enabledModules++;
             }
-            currentY += cardHeight + cardSpacing;
         }
 
-        graphics.disableScissor();
+        // 1. Header Banner Button (non-clickable)
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§d§lBallsClient§r §7v1.0.0 — §e" + totalModules + " Modules §7(" + enabledModules + " ON)"),
+                b -> {}
+        ).bounds(this.width / 2 - 170, 6, 340, 18).build());
 
-        // Render Settings overlay if a module is expanded
-        if (settingsModule != null) {
-            renderSettingsModal(graphics, settingsModule, mouseX, mouseY);
+        // 2. Category Tabs Row (Y = 28)
+        Category[] cats = Category.values();
+        int totalTabs = cats.length + 1; // +1 for ALL
+        int tabPad = 2;
+        int maxTabRowWidth = Math.min(this.width - 20, 480);
+        int tabW = Math.max(38, (maxTabRowWidth - (totalTabs * tabPad)) / totalTabs);
+        int startX = (this.width - (totalTabs * (tabW + tabPad))) / 2;
+
+        // "ALL" tab
+        String allLabel = (currentCategory == null) ? "▶ ALL ◀" : "ALL";
+        this.addRenderableWidget(Button.builder(Component.literal(allLabel), b -> {
+            this.currentCategory = null;
+            this.currentPage = 0;
+            rebuildUI();
+        }).bounds(startX, 28, tabW, 18).build());
+
+        for (int i = 0; i < cats.length; i++) {
+            Category cat = cats[i];
+            String label = (currentCategory == cat) ? ("▶ " + cat.name() + " ◀") : cat.name();
+            int x = startX + (i + 1) * (tabW + tabPad);
+            this.addRenderableWidget(Button.builder(Component.literal(label), b -> {
+                this.currentCategory = cat;
+                this.currentPage = 0;
+                rebuildUI();
+            }).bounds(x, 28, tabW, 18).build());
         }
 
-        super.render(graphics, mouseX, mouseY, partialTick);
+        // 3. Search Bar (Y = 49)
+        int searchW = Math.min(280, this.width - 40);
+        int searchX = this.width / 2 - searchW / 2;
+        searchBox = new EditBox(this.font, searchX, 49, searchW, 16, Component.literal("Search..."));
+        searchBox.setValue(this.searchText);
+        searchBox.setResponder(text -> {
+            this.searchText = text != null ? text.trim().toLowerCase() : "";
+            this.currentPage = 0;
+            rebuildUI();
+        });
+        this.addRenderableWidget(searchBox);
+
+        // 4. Module Rows (Y = 70 onwards)
+        int totalFiltered = filteredModules.size();
+        int maxPages = Math.max(1, (int) Math.ceil((double) totalFiltered / MODULES_PER_PAGE));
+        if (currentPage >= maxPages) currentPage = maxPages - 1;
+        if (currentPage < 0) currentPage = 0;
+
+        int startIndex = currentPage * MODULES_PER_PAGE;
+        int endIndex = Math.min(startIndex + MODULES_PER_PAGE, totalFiltered);
+
+        int rowStartY = 68;
+        int rowHeight = 20;
+        int rowPad = 2;
+        int cardWidth = Math.min(360, this.width - 30);
+        int cardX = this.width / 2 - cardWidth / 2;
+
+        for (int i = startIndex; i < endIndex; i++) {
+            final Module m = filteredModules.get(i);
+            int y = rowStartY + (i - startIndex) * (rowHeight + rowPad);
+
+            boolean hasSettings = (m.getSettings() != null && !m.getSettings().isEmpty());
+            int toggleWidth = hasSettings ? (cardWidth - 36) : cardWidth;
+
+            // Module Toggle Button
+            String status = m.isEnabled() ? "§a[ON] " : "§c[OFF] ";
+            String modLabel = status + m.getName() + " §8[" + m.getCategory().name() + "]";
+            this.addRenderableWidget(Button.builder(Component.literal(modLabel), b -> {
+                m.toggle();
+                if (BallsClientCore.getModuleManager() != null) {
+                    BallsClientCore.getModuleManager().saveConfig();
+                }
+                rebuildUI();
+            }).bounds(cardX, y, toggleWidth, rowHeight).build());
+
+            // Settings Button if module has settings
+            if (hasSettings) {
+                this.addRenderableWidget(Button.builder(Component.literal("⚙"), b -> {
+                    this.settingsModule = m;
+                    rebuildUI();
+                }).bounds(cardX + toggleWidth + 2, y, 34, rowHeight).build());
+            }
+        }
+
+        // 5. Pagination Bar (Y = height - 48)
+        int navY = Math.max(rowStartY + MODULES_PER_PAGE * (rowHeight + rowPad) + 4, this.height - 48);
+        int pageBtnW = 60;
+        int labelW = 140;
+        int navTotalW = pageBtnW * 2 + labelW + 8;
+        int navStartX = this.width / 2 - navTotalW / 2;
+
+        // Prev Button
+        Button prevBtn = Button.builder(Component.literal("« Prev"), b -> {
+            if (currentPage > 0) {
+                currentPage--;
+                rebuildUI();
+            }
+        }).bounds(navStartX, navY, pageBtnW, 18).build();
+        prevBtn.active = (currentPage > 0);
+        this.addRenderableWidget(prevBtn);
+
+        // Page Indicator
+        String pageInfo = "Page " + (currentPage + 1) + " / " + maxPages + " (" + totalFiltered + ")";
+        this.addRenderableWidget(Button.builder(Component.literal(pageInfo), b -> {}).bounds(navStartX + pageBtnW + 4, navY, labelW, 18).build());
+
+        // Next Button
+        Button nextBtn = Button.builder(Component.literal("Next »"), b -> {
+            if (currentPage < maxPages - 1) {
+                currentPage++;
+                rebuildUI();
+            }
+        }).bounds(navStartX + pageBtnW + labelW + 8, navY, pageBtnW, 18).build();
+        nextBtn.active = (currentPage < maxPages - 1);
+        this.addRenderableWidget(nextBtn);
+
+        // 6. Save & Close Button (Y = height - 26)
+        int closeW = 130;
+        this.addRenderableWidget(Button.builder(Component.literal("Save & Close"), b -> this.onClose())
+                .bounds(this.width / 2 - closeW / 2, this.height - 26, closeW, 20)
+                .build());
     }
 
-    private void renderModuleCard(GuiGraphics graphics, Module m, int x, int y, int width, int height, int mouseX, int mouseY) {
-        boolean enabled = m.isEnabled();
-        boolean hovered = mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height && settingsModule == null;
-
-        int bg = enabled ? (hovered ? 0xDD143220 : 0xCC11281A) : (hovered ? 0xDD222234 : 0xBB181826);
-        int border = enabled ? 0xFF22C55E : 0xFF3B4252;
-
-        graphics.fill(x, y, x + width, y + height, bg);
-        graphics.fill(x, y, x + 3, y + height, border); // Left accent bar
-
-        // Module Name
-        String nameStr = (enabled ? "§a§l" : "§f") + m.getName();
-        graphics.drawString(this.font, nameStr, x + 10, y + 5, 0xFFFFFF);
-
-        // Category Tag
-        String catStr = "§8[" + m.getCategory().name() + "]";
-        graphics.drawString(this.font, catStr, x + 12 + this.font.width(nameStr), y + 6, 0x888888);
-
-        // Description
-        String desc = m.getDescription() != null ? m.getDescription() : "";
-        if (desc.length() > 55) desc = desc.substring(0, 52) + "...";
-        graphics.drawString(this.font, "§7" + desc, x + 10, y + 18, 0x999999);
-
-        // Settings Button if module has settings
-        Collection<Setting<?>> settings = m.getSettings();
-        if (settings != null && !settings.isEmpty()) {
-            int gearX = x + width - 145;
-            int gearY = y + 7;
-            boolean gearHover = mouseX >= gearX && mouseX <= gearX + 65 && mouseY >= gearY && mouseY <= gearY + 18;
-            graphics.fill(gearX, gearY, gearX + 65, gearY + 18, gearHover ? 0xFF374151 : 0xFF1F2937);
-            graphics.drawCenteredString(this.font, "§e⚙ " + settings.size(), gearX + 32, gearY + 5, 0xFFFFFF);
-        }
-
-        // Toggle Switch Pill Button
-        int pillW = 60;
-        int pillX = x + width - pillW - 8;
-        int pillY = y + 7;
-        int pillBg = enabled ? 0xFF16A34A : 0xFF374151;
-        graphics.fill(pillX, pillY, pillX + pillW, pillY + 18, pillBg);
-        graphics.drawCenteredString(this.font, enabled ? "ON" : "OFF", pillX + pillW / 2, pillY + 5, 0xFFFFFF);
-    }
-
-    private void renderSettingsModal(GuiGraphics graphics, Module m, int mouseX, int mouseY) {
-        // Dim background
-        graphics.fill(0, 0, this.width, this.height, 0xB0000000);
-
-        int modalW = Math.min(420, this.width - 40);
-        int modalH = Math.min(260, this.height - 60);
-        int modalX = (this.width - modalW) / 2;
-        int modalY = (this.height - modalH) / 2;
-
-        graphics.fill(modalX, modalY, modalX + modalW, modalY + modalH, 0xFF181828);
-        graphics.fill(modalX, modalY, modalX + modalW, modalY + 28, 0xFF242438);
-        graphics.fill(modalX, modalY + 27, modalX + modalW, modalY + 28, 0xFF6366F1);
-
-        // Modal Title
-        graphics.drawString(this.font, "§d⚙ " + m.getName() + " Settings", modalX + 12, modalY + 10, 0xFFFFFF);
-
-        // Close X button
-        int closeX = modalX + modalW - 24;
-        int closeY = modalY + 8;
-        boolean closeHover = mouseX >= closeX && mouseX <= closeX + 16 && mouseY >= closeY && mouseY <= closeY + 16;
-        graphics.drawString(this.font, closeHover ? "§c[X]" : "§7[X]", closeX, closeY, 0xFFFFFF);
-
-        // Render Settings Rows
-        Collection<Setting<?>> settings = m.getSettings();
-        if (settings == null || settings.isEmpty()) {
-            graphics.drawCenteredString(this.font, "§7No configurable settings for this module.", modalX + modalW / 2, modalY + 80, 0x888888);
+    private void buildSettingsUI() {
+        if (settingsModule == null) {
+            rebuildUI();
             return;
         }
 
-        int sY = modalY + 36;
-        int rowH = 26;
-        for (Setting<?> s : settings) {
-            if (sY + rowH > modalY + modalH - 10) break;
+        int modalW = Math.min(380, this.width - 20);
+        int modalX = this.width / 2 - modalW / 2;
 
-            graphics.fill(modalX + 10, sY, modalX + modalW - 10, sY + rowH - 2, 0xFF202032);
-            graphics.drawString(this.font, s.getName(), modalX + 16, sY + 7, 0xEEEEEE);
+        // 1. Module Title Banner
+        this.addRenderableWidget(Button.builder(
+                Component.literal("§d⚙ " + settingsModule.getName() + " Settings §8[" + settingsModule.getCategory().name() + "]"),
+                b -> {}
+        ).bounds(modalX, 10, modalW, 20).build());
 
-            // Render interactive value box on the right
-            int valW = 90;
-            int valX = modalX + modalW - valW - 16;
-            int valY = sY + 3;
+        // 2. Settings Items
+        Collection<Setting<?>> settings = settingsModule.getSettings();
+        int sY = 36;
+        int itemH = 20;
+        int itemPad = 3;
 
-            if (s instanceof BooleanSetting bs) {
-                boolean bVal = bs.getValue();
-                graphics.fill(valX, valY, valX + valW, valY + 16, bVal ? 0xFF16A34A : 0xFF4B5563);
-                graphics.drawCenteredString(this.font, bVal ? "ENABLED" : "DISABLED", valX + valW / 2, valY + 4, 0xFFFFFF);
-            } else if (s instanceof NumberSetting ns) {
-                graphics.fill(valX, valY, valX + valW, valY + 16, 0xFF374151);
-                graphics.drawCenteredString(this.font, "« " + ns.getValue() + " »", valX + valW / 2, valY + 4, 0x60A5FA);
-            } else if (s instanceof ModeSetting ms) {
-                graphics.fill(valX, valY, valX + valW, valY + 16, 0xFF374151);
-                graphics.drawCenteredString(this.font, "§e" + ms.getValue(), valX + valW / 2, valY + 4, 0xFFFFFF);
-            } else {
-                graphics.fill(valX, valY, valX + valW, valY + 16, 0xFF2D3748);
-                graphics.drawCenteredString(this.font, String.valueOf(s.getValue()), valX + valW / 2, valY + 4, 0xCCCCCC);
-            }
-
-            sY += rowH;
-        }
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // If settings modal is open:
-        if (settingsModule != null) {
-            int modalW = Math.min(420, this.width - 40);
-            int modalH = Math.min(260, this.height - 60);
-            int modalX = (this.width - modalW) / 2;
-            int modalY = (this.height - modalH) / 2;
-
-            // Close button clicked
-            if (mouseX >= modalX + modalW - 28 && mouseX <= modalX + modalW - 8 && mouseY >= modalY + 6 && mouseY <= modalY + 22) {
-                settingsModule = null;
-                return true;
-            }
-
-            // Clicked outside modal closes it
-            if (mouseX < modalX || mouseX > modalX + modalW || mouseY < modalY || mouseY > modalY + modalH) {
-                settingsModule = null;
-                return true;
-            }
-
-            // Clicked a setting row
-            Collection<Setting<?>> settings = settingsModule.getSettings();
-            if (settings != null) {
-                int sY = modalY + 36;
-                int rowH = 26;
-                for (Setting<?> s : settings) {
-                    int valW = 90;
-                    int valX = modalX + modalW - valW - 16;
-                    int valY = sY + 3;
-
-                    if (mouseX >= valX && mouseX <= valX + valW && mouseY >= valY && mouseY <= valY + 16) {
-                        if (s instanceof BooleanSetting bs) {
-                            bs.setValue(!bs.getValue());
-                        } else if (s instanceof NumberSetting ns) {
-                            // Left click increments, right click decrements
-                            double cur = ((Number) ns.getValue()).doubleValue();
-                            double step = ns.getStep() > 0 ? ns.getStep() : 1.0;
-                            double next = (button == 0) ? (cur + step) : (cur - step);
-                            ns.setValue(next);
-                        } else if (s instanceof ModeSetting ms) {
-                            ms.cycle();
-                        }
+        if (settings == null || settings.isEmpty()) {
+            this.addRenderableWidget(Button.builder(Component.literal("§7No configurable options for this module."), b -> {})
+                    .bounds(modalX, 60, modalW, 20).build());
+        } else {
+            for (Setting<?> s : settings) {
+                if (s instanceof BooleanSetting bs) {
+                    boolean val = bs.getValue();
+                    String btnText = s.getName() + ": " + (val ? "§a[ENABLED]" : "§c[DISABLED]");
+                    this.addRenderableWidget(Button.builder(Component.literal(btnText), b -> {
+                        bs.setValue(!bs.getValue());
                         if (BallsClientCore.getModuleManager() != null) {
                             BallsClientCore.getModuleManager().saveConfig();
                         }
-                        return true;
-                    }
-                    sY += rowH;
+                        rebuildUI();
+                    }).bounds(modalX, sY, modalW, itemH).build());
+                } else if (s instanceof NumberSetting ns) {
+                    int stepBtnW = 28;
+                    int labelW = modalW - (stepBtnW * 2) - 4;
+
+                    // Dec Button
+                    this.addRenderableWidget(Button.builder(Component.literal("« -"), b -> {
+                        double cur = ((Number) ns.getValue()).doubleValue();
+                        double step = ns.getStep() > 0 ? ns.getStep() : 1.0;
+                        ns.setValue(cur - step);
+                        if (BallsClientCore.getModuleManager() != null) {
+                            BallsClientCore.getModuleManager().saveConfig();
+                        }
+                        rebuildUI();
+                    }).bounds(modalX, sY, stepBtnW, itemH).build());
+
+                    // Display Button
+                    String numText = s.getName() + ": §b" + ns.getValue();
+                    this.addRenderableWidget(Button.builder(Component.literal(numText), b -> {}).bounds(modalX + stepBtnW + 2, sY, labelW, itemH).build());
+
+                    // Inc Button
+                    this.addRenderableWidget(Button.builder(Component.literal("+ »"), b -> {
+                        double cur = ((Number) ns.getValue()).doubleValue();
+                        double step = ns.getStep() > 0 ? ns.getStep() : 1.0;
+                        ns.setValue(cur + step);
+                        if (BallsClientCore.getModuleManager() != null) {
+                            BallsClientCore.getModuleManager().saveConfig();
+                        }
+                        rebuildUI();
+                    }).bounds(modalX + stepBtnW + labelW + 4, sY, stepBtnW, itemH).build());
+                } else if (s instanceof ModeSetting ms) {
+                    String modeText = s.getName() + ": §e" + ms.getValue();
+                    this.addRenderableWidget(Button.builder(Component.literal(modeText), b -> {
+                        ms.cycle();
+                        if (BallsClientCore.getModuleManager() != null) {
+                            BallsClientCore.getModuleManager().saveConfig();
+                        }
+                        rebuildUI();
+                    }).bounds(modalX, sY, modalW, itemH).build());
+                } else {
+                    String genText = s.getName() + ": " + s.getValue();
+                    this.addRenderableWidget(Button.builder(Component.literal(genText), b -> {}).bounds(modalX, sY, modalW, itemH).build());
                 }
-            }
-            return true;
-        }
 
-        // Check Category Tabs
-        for (CategoryButton cb : categoryButtons) {
-            if (mouseX >= cb.x && mouseX <= cb.x + cb.width && mouseY >= cb.y && mouseY <= cb.y + cb.height) {
-                this.currentCategory = cb.category;
-                this.scrollY = 0;
-                updateFilteredModules();
-                return true;
+                sY += itemH + itemPad;
+                if (sY > this.height - 56) break;
             }
         }
 
-        // Check Module Cards
-        int listTop = 60;
-        int listBottom = this.height - 34;
-        if (mouseY >= listTop && mouseY <= listBottom) {
-            int cardHeight = 34;
-            int cardSpacing = 4;
-            int cardWidth = Math.min(520, this.width - 40);
-            int cardX = (this.width - cardWidth) / 2;
-
-            int currentY = listTop + 4 - scrollY;
-            for (Module m : displayModules) {
-                if (mouseY >= currentY && mouseY <= currentY + cardHeight && mouseX >= cardX && mouseX <= cardX + cardWidth) {
-                    int gearX = cardX + cardWidth - 145;
-                    int gearY = currentY + 7;
-
-                    // If gear clicked or right-clicked: open settings
-                    if (button == 1 || (mouseX >= gearX && mouseX <= gearX + 65 && mouseY >= gearY && mouseY <= gearY + 18)) {
-                        this.settingsModule = m;
-                        return true;
-                    }
-
-                    // Otherwise toggle module
-                    m.toggle();
-                    if (BallsClientCore.getModuleManager() != null) {
-                        BallsClientCore.getModuleManager().saveConfig();
-                    }
-                    return true;
-                }
-                currentY += cardHeight + cardSpacing;
-            }
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (settingsModule == null) {
-            int maxScroll = Math.max(0, displayModules.size() * 38 - (this.height - 100));
-            this.scrollY = Math.max(0, Math.min(maxScroll, this.scrollY - (int)(verticalAmount * 24)));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        // 3. Back Button
+        int backW = 140;
+        this.addRenderableWidget(Button.builder(Component.literal("« Back to Module List"), b -> {
+            this.settingsModule = null;
+            rebuildUI();
+        }).bounds(this.width / 2 - backW / 2, this.height - 28, backW, 20).build());
     }
 
     @Override
@@ -382,6 +310,7 @@ public class BallsClientConfigScreen extends Screen {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             if (settingsModule != null) {
                 settingsModule = null;
+                rebuildUI();
                 return true;
             }
             this.onClose();
@@ -395,9 +324,7 @@ public class BallsClientConfigScreen extends Screen {
         if (BallsClientCore.getModuleManager() != null) {
             BallsClientCore.getModuleManager().saveConfig();
         }
-        if (this.minecraft != null) {
-            this.minecraft.setScreen(this.parent);
-        }
+        ScreenHelper.setScreen(this.minecraft, this.parent);
     }
 
     @Override
