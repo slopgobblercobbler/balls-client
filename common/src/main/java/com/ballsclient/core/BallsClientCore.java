@@ -45,12 +45,32 @@ public final class BallsClientCore {
         if (moduleManager == null) {
             moduleManager = new ModuleManager(EVENT_BUS);
             moduleManager.registerDefaultModules();
+            registerAllCatalogs(moduleManager);
             moduleManager.loadConfig();
         }
 
         initialized = true;
         LOGGER.info("{} Core successfully bootstrapped with {} registered modules.",
                 MOD_NAME, moduleManager.getModules().size());
+    }
+
+    private static void registerAllCatalogs(ModuleManager manager) {
+        String[] catalogs = {
+            "com.ballsclient.core.module.movement.MovementModuleCatalog",
+            "com.ballsclient.core.module.combat.CombatModuleCatalog",
+            "com.ballsclient.core.module.player.PlayerModuleCatalog",
+            "com.ballsclient.core.module.inventory.InventoryModuleCatalog",
+            "com.ballsclient.core.module.automation.AutomationModuleCatalog",
+            "com.ballsclient.core.module.telemetry.TelemetryModuleCatalog"
+        };
+        for (String catName : catalogs) {
+            try {
+                Class<?> catalogClass = Class.forName(catName);
+                catalogClass.getMethod("registerAll", ModuleManager.class).invoke(null, manager);
+            } catch (Exception e) {
+                LOGGER.error("Failed to load catalog {}: {}", catName, e.getMessage(), e);
+            }
+        }
     }
 
     public static synchronized void shutdown() {
