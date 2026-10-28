@@ -24,6 +24,10 @@ dependencies {
     include project(':common')
 }
 
+remapJar {
+    targetNamespace = 'named'
+}
+
 processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") {
