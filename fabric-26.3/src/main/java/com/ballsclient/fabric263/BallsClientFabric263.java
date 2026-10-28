@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 import com.ballsclient.core.BallsClientCore;
+import com.ballsclient.fabric263.gui.BallsClientConfigScreen;
 import com.clientmod.core.adapter.PlatformAdapterRegistry;
 import com.clientmod.fabric263.adapter.Fabric263Adapter;
 
@@ -24,6 +25,8 @@ public class BallsClientFabric263 implements ClientModInitializer {
     public static KeyMapping FULLBRIGHT_KEY;
     public static KeyMapping MENU_KEY;
     public static KeyMapping SORT_KEY;
+
+    private static boolean menuKeyPressedLastTick = false;
 
     @Override
     public void onInitializeClient() {
@@ -147,7 +150,25 @@ public class BallsClientFabric263 implements ClientModInitializer {
         try {
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
                 try {
-                    if (client == null || client.player == null) {
+                    if (client == null) {
+                        return;
+                    }
+
+                    // Check Right Shift / MENU_KEY
+                    long window = client.getWindow() != null ? client.getWindow().getWindow() : 0;
+                    boolean rshiftPhysical = window != 0 && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_SHIFT);
+                    boolean menuClicked = (MENU_KEY != null && MENU_KEY.consumeClick());
+
+                    if ((rshiftPhysical && !menuKeyPressedLastTick) || menuClicked) {
+                        if (client.screen == null) {
+                            client.setScreen(new BallsClientConfigScreen(null));
+                        } else if (client.screen instanceof BallsClientConfigScreen) {
+                            client.screen.onClose();
+                        }
+                    }
+                    menuKeyPressedLastTick = rshiftPhysical;
+
+                    if (client.player == null) {
                         return;
                     }
 

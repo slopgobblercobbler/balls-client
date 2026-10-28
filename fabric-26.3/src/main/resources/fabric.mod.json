@@ -19,6 +19,9 @@
   "entrypoints": {
     "client": [
       "com.ballsclient.fabric263.BallsClientFabric263"
+    ],
+    "modmenu": [
+      "com.ballsclient.fabric263.compat.BallsClientModMenuCompat"
     ]
   },
   "mixins": [
