@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "clientmod",
+  "version": "${version}",
+  "name": "ClientMod",
+  "description": "Comprehensive client-side utility and quality-of-life suite for Minecraft (1.20 - 1.20.4).",
+  "authors": [
+    "Stephen Cork",
+    "ClientMod Contributors"
+  ],
+  "contact": {
+    "homepage": "https://github.com/slopgobblercobbler/balls-client",
+    "sources": "https://github.com/slopgobblercobbler/balls-client",
+    "issues": "https://github.com/slopgobblercobbler/balls-client/issues"
+  },
+  "license": "Apache-2.0",
+  "icon": "assets/clientmod/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.clientmod.fabric1201.ClientModFabric1201"
+    ]
+  },
+  "mixins": [
+    "clientmod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": ">=1.20 <=1.20.4",
+    "java": ">=17",
+    "fabric": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}
