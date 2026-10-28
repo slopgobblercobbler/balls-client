@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "clientmod-common",
+  "version": "${version}",
+  "name": "ClientMod Common Core",
+  "description": "Domain logic, algorithms, schematic parsers, and telemetry calculation engine for ClientMod.",
+  "authors": [
+    "Stephen Cork",
+    "ClientMod Contributors"
+  ],
+  "contact": {
+    "homepage": "https://github.com/slopgobblercobbler/balls-client"
+  },
+  "license": "Apache-2.0",
+  "icon": "assets/clientmod/icon.png",
+  "environment": "client",
+  "custom": {
+    "fabric-loom:generated": true
+  }
+}
