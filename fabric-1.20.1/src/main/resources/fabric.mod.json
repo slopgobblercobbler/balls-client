@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "clientmod",
+  "id": "ballsclient",
   "version": "${version}",
-  "name": "ClientMod",
-  "description": "Comprehensive client-side utility and quality-of-life suite for Minecraft (1.20 - 1.20.4).",
+  "name": "BallsClient",
+  "description": "Comprehensive client-side utility and quality-of-life suite for Minecraft (1.20 - 1.20.4) with 620+ modules.",
   "authors": [
-    "Stephen Cork",
-    "ClientMod Contributors"
+    "slopgobblercobbler",
+    "Balls Client Contributors"
   ],
   "contact": {
     "homepage": "https://github.com/slopgobblercobbler/balls-client",
@@ -14,23 +14,23 @@
     "issues": "https://github.com/slopgobblercobbler/balls-client/issues"
   },
   "license": "Apache-2.0",
-  "icon": "assets/clientmod/icon.png",
+  "icon": "assets/ballsclient/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.clientmod.fabric1201.ClientModFabric1201"
+      "com.ballsclient.fabric1201.BallsClientFabric1201"
     ]
   },
   "mixins": [
-    "clientmod.mixins.json"
+    "ballsclient.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.15.0",
     "minecraft": ">=1.20 <=1.20.4",
-    "java": ">=17",
-    "fabric": "*"
+    "java": ">=17"
   },
   "suggests": {
+    "fabric-api": "*",
     "modmenu": "*"
   }
 }
