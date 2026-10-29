@@ -119,16 +119,37 @@ class SettingHierarchyTest {
     }
 
     @Test
-    @DisplayName("KeybindSetting: Matching, unbound checks, and GLFW keycodes")
+    @DisplayName("KeybindSetting: Matching, unbound checks, getDisplayName and GLFW keycodes")
     void testKeybindSetting() {
         KeybindSetting keybind = new KeybindSetting("Bind", "Key", KeybindSetting.KEY_NONE);
         assertThat(keybind.isBound()).isFalse();
+        assertThat(keybind.getDisplayName()).isEqualTo("NONE");
         assertThat(keybind.matches(65)).isFalse();
+
+        keybind.setValue(0);
+        assertThat(keybind.isBound()).isFalse();
+        assertThat(keybind.getDisplayName()).isEqualTo("NONE");
 
         keybind.setValue(65); // Key A
         assertThat(keybind.isBound()).isTrue();
+        assertThat(keybind.getDisplayName()).isEqualTo("A");
         assertThat(keybind.matches(65)).isTrue();
         assertThat(keybind.matches(66)).isFalse();
+
+        keybind.setValue(344); // RSHIFT
+        assertThat(keybind.getDisplayName()).isEqualTo("RSHIFT");
+
+        keybind.setValue(32); // SPACE
+        assertThat(keybind.getDisplayName()).isEqualTo("SPACE");
+
+        keybind.setValue(67); // C
+        assertThat(keybind.getDisplayName()).isEqualTo("C");
+
+        keybind.setValue(66); // B
+        assertThat(keybind.getDisplayName()).isEqualTo("B");
+
+        keybind.setValue(82); // R
+        assertThat(keybind.getDisplayName()).isEqualTo("R");
     }
 
     @Test

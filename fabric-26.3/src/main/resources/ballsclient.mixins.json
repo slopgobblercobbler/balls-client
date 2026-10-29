@@ -3,8 +3,14 @@
   "minVersion": "0.8",
   "package": "com.ballsclient.fabric263.mixin",
   "compatibilityLevel": "JAVA_25",
-  "mixins": [],
-  "client": [],
+  "mixins": [
+    "ConnectionMixin"
+  ],
+  "client": [
+    "KeyboardHandlerMixin",
+    "MouseHandlerMixin",
+    "ScreenEventsMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1

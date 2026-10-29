@@ -185,4 +185,41 @@ class EventBusTest {
 
         assertThat(totalEventsHandled.get()).isEqualTo(threadCount * 50 * listeners.size());
     }
+
+    @Test
+    @DisplayName("PacketEvent: Send and Receive dispatch, cancellation, and typed packet extraction")
+    void testPacketEventDispatchAndCancellation() {
+        EventBus bus = new EventBus();
+        AtomicInteger receiveCount = new AtomicInteger(0);
+        AtomicInteger sendCount = new AtomicInteger(0);
+
+        Object listener = new Object() {
+            @Subscribe
+            void onReceive(PacketEvent.Receive e) {
+                receiveCount.incrementAndGet();
+                assertThat(e.getPacket()).isEqualTo("test_inbound_packet");
+                assertThat(e.getPacket(String.class)).isEqualTo("test_inbound_packet");
+                assertThat(e.getPacket(Integer.class)).isNull();
+                e.setCancelled(true);
+            }
+
+            @Subscribe
+            void onSend(PacketEvent.Send e) {
+                sendCount.incrementAndGet();
+                assertThat(e.getPacket()).isEqualTo("test_outbound_packet");
+            }
+        };
+
+        bus.register(listener);
+
+        PacketEvent.Receive rx = new PacketEvent.Receive("test_inbound_packet");
+        bus.post(rx);
+        assertThat(receiveCount.get()).isEqualTo(1);
+        assertThat(rx.isCancelled()).isTrue();
+
+        PacketEvent.Send tx = new PacketEvent.Send("test_outbound_packet");
+        bus.post(tx);
+        assertThat(sendCount.get()).isEqualTo(1);
+        assertThat(tx.isCancelled()).isFalse();
+    }
 }

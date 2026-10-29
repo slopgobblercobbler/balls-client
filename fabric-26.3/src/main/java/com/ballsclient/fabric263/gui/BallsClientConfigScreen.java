@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import com.ballsclient.fabric263.gui.clickgui.ModernClickGuiScreen;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -90,8 +91,8 @@ public class BallsClientConfigScreen extends Screen {
 
         // 1. Header Banner Button (non-clickable)
         this.addRenderableWidget(Button.builder(
-                Component.literal("§d§lBallsClient§r §7v1.0.0 — §e" + totalModules + " Modules §7(" + enabledModules + " ON)"),
-                b -> {}
+                Component.literal("§d§lBallsClient§r §7v1.0.0 — §e" + totalModules + " Modules §7(" + enabledModules + " ON) §b[Modern GUI]"),
+                b -> ScreenHelper.setScreen(this.minecraft, new ModernClickGuiScreen(this.parent))
         ).bounds(this.width / 2 - 170, 6, 340, 18).build());
 
         // 2. Category Tabs Row (Y = 28)

@@ -1,5 +1,6 @@
 package com.ballsclient.core.setting;
 
+import com.ballsclient.core.util.KeyUtils;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
@@ -19,6 +20,10 @@ public class KeybindSetting extends Setting<Integer> {
 
     public boolean matches(int keyCode) {
         return isBound() && getValue() == keyCode;
+    }
+
+    public String getDisplayName() {
+        return KeyUtils.getKeyName(getValue());
     }
 
     @Override

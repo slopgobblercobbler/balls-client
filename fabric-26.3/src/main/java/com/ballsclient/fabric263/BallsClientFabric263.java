@@ -4,13 +4,20 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 import com.ballsclient.core.BallsClientCore;
+import com.ballsclient.core.event.Render2DEvent;
+import com.ballsclient.core.event.Render3DEvent;
+import com.ballsclient.core.event.TickEvent;
+import com.ballsclient.core.module.Module;
 import com.ballsclient.fabric263.gui.BallsClientConfigScreen;
+import com.ballsclient.fabric263.gui.clickgui.ModernClickGuiScreen;
 import com.ballsclient.fabric263.gui.ScreenHelper;
 import com.clientmod.core.adapter.PlatformAdapterRegistry;
 import com.clientmod.fabric263.adapter.Fabric263Adapter;
@@ -63,16 +70,23 @@ public class BallsClientFabric263 implements ClientModInitializer {
             BallsClientCore.LOGGER.warn("Failed to register tick events: " + t.getMessage(), t);
         }
 
+        // 5. Register Render Callbacks (HudRenderCallback & WorldRenderEvents.LAST)
+        try {
+            registerRenderEvents();
+        } catch (Throwable t) {
+            BallsClientCore.LOGGER.warn("Failed to register render events: " + t.getMessage(), t);
+        }
+
         int moduleCount = (BallsClientCore.getModuleManager() != null) ? BallsClientCore.getModuleManager().getModules().size() : 0;
         BallsClientCore.LOGGER.info("BallsClient Fabric 26.3 initialization complete with {} modules.", moduleCount);
     }
 
     private void registerKeybindings() {
         try {
-            ZOOM_KEY = createKey("key.ballsclient.zoom", GLFW.GLFW_KEY_C, KEY_CATEGORY);
-            FULLBRIGHT_KEY = createKey("key.ballsclient.fullbright", GLFW.GLFW_KEY_B, KEY_CATEGORY);
-            MENU_KEY = createKey("key.ballsclient.menu", GLFW.GLFW_KEY_RIGHT_SHIFT, KEY_CATEGORY);
-            SORT_KEY = createKey("key.ballsclient.sort", GLFW.GLFW_KEY_R, KEY_CATEGORY);
+            ZOOM_KEY = createKey("key.ballsclient.zoom", InputConstants.KEY_C, KEY_CATEGORY);
+            FULLBRIGHT_KEY = createKey("key.ballsclient.fullbright", InputConstants.KEY_B, KEY_CATEGORY);
+            MENU_KEY = createKey("key.ballsclient.menu", InputConstants.KEY_RSHIFT, KEY_CATEGORY);
+            SORT_KEY = createKey("key.ballsclient.sort", InputConstants.KEY_R, KEY_CATEGORY);
 
             registerSingleKey(ZOOM_KEY);
             registerSingleKey(FULLBRIGHT_KEY);
@@ -223,8 +237,22 @@ public class BallsClientFabric263 implements ClientModInitializer {
 
     private void registerTickEvents() {
         try {
+            ClientTickEvents.START_CLIENT_TICK.register(client -> {
+                try {
+                    if (BallsClientCore.getEventBus() != null) {
+                        BallsClientCore.getEventBus().post(new TickEvent(TickEvent.Phase.PRE));
+                    }
+                } catch (Throwable t) {
+                    BallsClientCore.LOGGER.error("Error in START_CLIENT_TICK dispatch: " + t.getMessage(), t);
+                }
+            });
+
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
                 try {
+                    if (BallsClientCore.getEventBus() != null) {
+                        BallsClientCore.getEventBus().post(new TickEvent(TickEvent.Phase.POST));
+                    }
+
                     if (client == null) {
                         return;
                     }
@@ -236,15 +264,28 @@ public class BallsClientFabric263 implements ClientModInitializer {
                     if ((rshiftPhysical && !menuKeyPressedLastTick) || menuClicked) {
                         Screen currentScreen = ScreenHelper.getCurrentScreen(client);
                         if (currentScreen == null) {
-                            ScreenHelper.setScreen(client, new BallsClientConfigScreen(null));
-                        } else if (currentScreen instanceof BallsClientConfigScreen) {
+                            ScreenHelper.setScreen(client, new ModernClickGuiScreen(null));
+                        } else if (currentScreen instanceof ModernClickGuiScreen || currentScreen instanceof BallsClientConfigScreen) {
                             ScreenHelper.setScreen(client, null);
                         }
                     }
                     menuKeyPressedLastTick = rshiftPhysical;
 
-                    if (client.player == null) {
+                    if (client.player == null || client.level == null) {
                         return;
+                    }
+
+                    // Module onTick dispatch for all enabled modules
+                    if (BallsClientCore.getModuleManager() != null) {
+                        for (Module m : BallsClientCore.getModuleManager().getModules()) {
+                            if (m != null && m.isEnabled()) {
+                                try {
+                                    m.onTick();
+                                } catch (Throwable t) {
+                                    BallsClientCore.LOGGER.error("Error in onTick for module " + m.getName() + ": " + t.getMessage(), t);
+                                }
+                            }
+                        }
                     }
 
                     boolean forwardPressed = false;
@@ -260,7 +301,44 @@ public class BallsClientFabric263 implements ClientModInitializer {
                 } catch (Throwable ignored) {}
             });
         } catch (Throwable t) {
-            BallsClientCore.LOGGER.warn("Could not register ClientTickEvents: " + t.getMessage());
+            BallsClientCore.LOGGER.warn("Could not register ClientTickEvents: " + t.getMessage(), t);
+        }
+    }
+
+    private void registerRenderEvents() {
+        try {
+            HudRenderCallback.EVENT.register((guiGraphics, deltaTracker) -> {
+                try {
+                    Minecraft client = Minecraft.getInstance();
+                    if (client != null && client.player != null && client.getWindow() != null) {
+                        float tickDelta = deltaTracker != null ? deltaTracker.getGameTimeDeltaPartialTick(false) : 0.0f;
+                        int width = client.getWindow().getGuiScaledWidth();
+                        int height = client.getWindow().getGuiScaledHeight();
+                        if (BallsClientCore.getEventBus() != null) {
+                            BallsClientCore.getEventBus().post(new Render2DEvent(guiGraphics, tickDelta, width, height));
+                        }
+                    }
+                } catch (Throwable t) {
+                    BallsClientCore.LOGGER.error("Error in HudRenderCallback dispatch: " + t.getMessage(), t);
+                }
+            });
+
+            WorldRenderEvents.LAST.register(context -> {
+                try {
+                    Minecraft client = Minecraft.getInstance();
+                    if (client != null && client.player != null && context != null) {
+                        float tickDelta = context.tickCounter() != null ? context.tickCounter().getGameTimeDeltaPartialTick(false) : 0.0f;
+                        if (BallsClientCore.getEventBus() != null) {
+                            BallsClientCore.getEventBus().post(new Render3DEvent(context.matrixStack(), tickDelta));
+                        }
+                    }
+                } catch (Throwable t) {
+                    BallsClientCore.LOGGER.error("Error in WorldRenderEvents.LAST dispatch: " + t.getMessage(), t);
+                }
+            });
+            BallsClientCore.LOGGER.info("Registered BallsClient 26.3 render callbacks (HudRenderCallback, WorldRenderEvents.LAST).");
+        } catch (Throwable t) {
+            BallsClientCore.LOGGER.warn("Could not register render events: " + t.getMessage(), t);
         }
     }
 }
