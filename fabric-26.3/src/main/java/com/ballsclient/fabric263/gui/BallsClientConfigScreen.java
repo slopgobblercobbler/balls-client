@@ -317,7 +317,7 @@ public class BallsClientConfigScreen extends Screen {
             this.onClose();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     @Override

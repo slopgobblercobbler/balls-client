@@ -168,7 +168,7 @@ public class ModernClickGuiScreen extends Screen {
             return true;
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     @Override
@@ -180,7 +180,7 @@ public class ModernClickGuiScreen extends Screen {
             }
         }
         persistPanelPositions();
-        return handled || super.mouseReleased(mouseX, mouseY, button);
+        return handled;
     }
 
     @Override
@@ -191,7 +191,7 @@ public class ModernClickGuiScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return false;
     }
 
     @Override
@@ -202,7 +202,7 @@ public class ModernClickGuiScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        return false;
     }
 
     @Override
@@ -219,7 +219,7 @@ public class ModernClickGuiScreen extends Screen {
             return true;
         }
 
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     /**
