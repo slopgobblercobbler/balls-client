@@ -10,6 +10,7 @@ import com.ballsclient.fabric263.mixin.ScreenEventsMixin;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -367,7 +368,7 @@ public class CanvasAndMixinsInvariantsEmpiricalTest {
 
         // Sub-test A: Unhandled key when NOT rebinding -> MUST return false and NOT cancel
         CallbackInfoReturnable<Boolean> cirUnhandled = new CallbackInfoReturnable<>("keyPressed", true);
-        DummyMinecraftKeyEvent unhandledKey = new DummyMinecraftKeyEvent(GLFW.GLFW_KEY_X, 0, 0);
+        KeyEvent unhandledKey = new KeyEvent(GLFW.GLFW_KEY_X, 0, 0);
         if (gui.keyPressed(unhandledKey)) {
             cirUnhandled.setReturnValue(true);
         }
@@ -378,7 +379,7 @@ public class CanvasAndMixinsInvariantsEmpiricalTest {
         // Sub-test B: Rebinding active -> key GLFW_KEY_R (82) -> MUST consume key, return true, setReturnValue(true)
         targetCard.setRebinding(true);
         CallbackInfoReturnable<Boolean> cirRebind = new CallbackInfoReturnable<>("keyPressed", true);
-        DummyMinecraftKeyEvent rebindKey = new DummyMinecraftKeyEvent(GLFW.GLFW_KEY_R, 0, 0);
+        KeyEvent rebindKey = new KeyEvent(GLFW.GLFW_KEY_R, 0, 0);
         if (gui.keyPressed(rebindKey)) {
             cirRebind.setReturnValue(true);
         }
@@ -399,7 +400,7 @@ public class CanvasAndMixinsInvariantsEmpiricalTest {
         // Sub-test C: Rebinding active -> ESC unbinds to KEY_NONE (-1) and returns true
         targetCard.setRebinding(true);
         CallbackInfoReturnable<Boolean> cirEscUnbind = new CallbackInfoReturnable<>("keyPressed", true);
-        DummyMinecraftKeyEvent escKey = new DummyMinecraftKeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        KeyEvent escKey = new KeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0);
         if (gui.keyPressed(escKey)) {
             cirEscUnbind.setReturnValue(true);
         }
@@ -422,7 +423,7 @@ public class CanvasAndMixinsInvariantsEmpiricalTest {
         }
 
         // Sub-test E: Right Shift closes GUI and returns true
-        DummyMinecraftKeyEvent rShiftKey = new DummyMinecraftKeyEvent(GLFW.GLFW_KEY_RIGHT_SHIFT, 0, 0);
+        KeyEvent rShiftKey = new KeyEvent(GLFW.GLFW_KEY_RIGHT_SHIFT, 0, 0);
         CallbackInfoReturnable<Boolean> cirRShift = new CallbackInfoReturnable<>("keyPressed", true);
         if (gui.keyPressed(rShiftKey)) {
             cirRShift.setReturnValue(true);

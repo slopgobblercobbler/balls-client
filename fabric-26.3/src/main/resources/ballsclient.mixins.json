@@ -8,7 +8,6 @@
   ],
   "client": [
     "KeyboardHandlerMixin",
-    "MouseHandlerMixin",
     "ScreenEventsMixin"
   ],
   "server": [],

@@ -23,6 +23,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${property('fabric_api_263')}"
 
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
+    testImplementation fileTree(dir: 'libs', include: ['*.jar'])
 
     implementation project(':common')
     include project(':common')

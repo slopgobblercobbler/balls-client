@@ -3,12 +3,15 @@ package com.ballsclient.fabric263.gui.clickgui;
 import com.ballsclient.core.BallsClientCore;
 import com.ballsclient.core.module.Category;
 import com.ballsclient.fabric263.gui.ScreenHelper;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,14 +50,6 @@ public class ModernClickGuiScreen extends Screen {
     private void buildPanels() {
         panels.clear();
         ClickGuiConfig.load();
-
-        // 6 Standard Panels mapping all 7 core categories:
-        // 1. Combat (COMBAT)
-        // 2. Movement (MOVEMENT)
-        // 3. Render (RENDER)
-        // 4. Player (PLAYER)
-        // 5. World (INVENTORY, AUTOMATION)
-        // 6. Misc (NETWORK)
 
         int startX = 20;
         int startY = 30;
@@ -109,52 +104,109 @@ public class ModernClickGuiScreen extends Screen {
         return null;
     }
 
+    /**
+     * Primary universal render routine for ClickGUI.
+     */
     public void render(ClickGuiCanvas canvas, int mouseX, int mouseY, float delta) {
-        // Translucent dark theme backdrop (#121216 @ ~70% opacity)
-        canvas.fill(0, 0, this.width, this.height, 0xB3121216);
+        try {
+            // Translucent dark theme backdrop (#121216 @ ~70% opacity)
+            canvas.fill(0, 0, this.width, this.height, 0xB3121216);
 
-        // Header watermark
-        canvas.drawString(this.font, "BALLS CLIENT", 12, 10, 0xFF5865F2, true);
-        canvas.drawString(this.font, "§7v1.0.0 | Press §bESC§7 or §bRight Shift§7 to close", 92, 10, 0xFF8A8E9E, false);
+            // Header watermark
+            canvas.drawString(this.font, "BALLS CLIENT", 12, 10, 0xFF5865F2, true);
+            canvas.drawString(this.font, "§7v1.0.0 | Press §bESC§7 or §bRight Shift§7 to close", 92, 10, 0xFF8A8E9E, false);
 
-        hoveredModuleName = null;
-        hoveredModuleDesc = null;
+            hoveredModuleName = null;
+            hoveredModuleDesc = null;
 
-        // Render category panels (back-to-front)
-        for (CategoryPanel panel : panels) {
-            panel.render(canvas, this.font, mouseX, mouseY, this.width, this.height, (name, desc) -> {
-                hoveredModuleName = name;
-                hoveredModuleDesc = desc;
-            });
-        }
-
-        // Render deferred tooltip at top level (prevents clipping by scissor boxes)
-        if (hoveredModuleName != null && findRebindingCard() == null) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.literal("§f§l" + hoveredModuleName));
-            if (hoveredModuleDesc != null && !hoveredModuleDesc.isEmpty()) {
-                tooltip.add(Component.literal("§7" + hoveredModuleDesc));
+            // Render category panels (back-to-front)
+            for (CategoryPanel panel : panels) {
+                panel.render(canvas, this.font, mouseX, mouseY, this.width, this.height, (name, desc) -> {
+                    hoveredModuleName = name;
+                    hoveredModuleDesc = desc;
+                });
             }
-            tooltip.add(Component.literal("§8[L-Click] Toggle  |  [R-Click] Settings"));
-            canvas.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+
+            // Render deferred tooltip at top level (prevents clipping by scissor boxes)
+            if (hoveredModuleName != null && findRebindingCard() == null) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.literal("§f§l" + hoveredModuleName));
+                if (hoveredModuleDesc != null && !hoveredModuleDesc.isEmpty()) {
+                    tooltip.add(Component.literal("§7" + hoveredModuleDesc));
+                }
+                tooltip.add(Component.literal("§8[L-Click] Toggle  |  [R-Click] Settings"));
+                canvas.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            }
+        } catch (Throwable t) {
+            BallsClientCore.LOGGER.error("Error during ModernClickGuiScreen render: " + t.getMessage(), t);
         }
     }
 
+    /**
+     * Minecraft 26.3 Background suppression entry point.
+     * Prevents vanilla Screen.extractBackground from rendering dirt texture or dark blur.
+     */
+    public void extractBackground(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float delta) {
+        // No-op: ModernClickGuiScreen renders its own translucent dark background in extractRenderState
+    }
+
+    /**
+     * Minecraft 26.3 Screen rendering entry point.
+     * Invoked natively by Minecraft 26.3 Screen.extractRenderStateWithTooltipAndSubtitles.
+     */
+    public void extractRenderState(GuiGraphicsExtractor extractor, int mouseX, int mouseY, float delta) {
+        render(ClickGuiCanvas.of(extractor), mouseX, mouseY, delta);
+    }
+
+    /**
+     * Minecraft 1.20/1.21 Screen rendering entry point.
+     */
     @Override
     public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         render(ClickGuiCanvas.of(context), mouseX, mouseY, delta);
     }
 
+    /**
+     * Minecraft 26.3 Mouse Click entry point.
+     */
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (event == null) return false;
+        return mouseClicked(event.x(), event.y(), event.button());
+    }
+
+    /**
+     * Minecraft 26.3 Mouse Release entry point.
+     */
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (event == null) return false;
+        return mouseReleased(event.x(), event.y(), event.button());
+    }
+
+    /**
+     * Minecraft 26.3 Mouse Drag entry point.
+     */
+    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+        if (event == null) return false;
+        return mouseDragged(event.x(), event.y(), event.button(), deltaX, deltaY);
+    }
+
+    /**
+     * Minecraft 26.3 Key Press entry point.
+     */
+    public boolean keyPressed(KeyEvent event) {
+        if (event == null) return false;
+        return keyPressed(event.key(), event.keycode(), event.modifiers());
+    }
+
+    // --- Legacy coordinate-based mouse & keyboard handlers ---
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // If a card is rebinding, clicking anywhere outside cancels rebinding
         ModuleCard rebindingCard = findRebindingCard();
 
-        // Check panels in reverse order (top-most panel receives click first)
         for (int i = panels.size() - 1; i >= 0; i--) {
             CategoryPanel panel = panels.get(i);
             if (panel.mouseClicked(mouseX, mouseY, button, this.height)) {
-                // If dragged, bring panel to front
                 if (panel.isDragging()) {
                     panels.remove(i);
                     panels.add(panel);
@@ -207,13 +259,11 @@ public class ModernClickGuiScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // 1. Rebinding capture
         ModuleCard rebindingCard = findRebindingCard();
         if (rebindingCard != null) {
             return rebindingCard.handleKey(keyCode);
         }
 
-        // 2. GUI close on ESC or Right Shift
         if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
             this.onClose();
             return true;
@@ -222,39 +272,9 @@ public class ModernClickGuiScreen extends Screen {
         return false;
     }
 
-    /**
-     * Fallback overload for core KeyEvent dispatch.
-     */
     public boolean keyPressed(com.ballsclient.core.event.KeyEvent keyEvent) {
         if (keyEvent != null) {
             return keyPressed(keyEvent.getKeyCode(), keyEvent.getScanCode(), keyEvent.getModifiers());
-        }
-        return false;
-    }
-
-    /**
-     * Fallback overload for reflective net.minecraft.client.input.KeyEvent if called via reflection.
-     */
-    public boolean keyPressed(Object keyEvent) {
-        if (keyEvent instanceof com.ballsclient.core.event.KeyEvent e) {
-            return keyPressed(e);
-        }
-        if (keyEvent != null) {
-            try {
-                Method keyMethod = keyEvent.getClass().getMethod("key");
-                int key = ((Number) keyMethod.invoke(keyEvent)).intValue();
-                int scancode = 0;
-                int modifiers = 0;
-                try {
-                    Method scancodeMethod = keyEvent.getClass().getMethod("keycode");
-                    scancode = ((Number) scancodeMethod.invoke(keyEvent)).intValue();
-                } catch (Throwable ignored) {}
-                try {
-                    Method modMethod = keyEvent.getClass().getMethod("modifiers");
-                    modifiers = ((Number) modMethod.invoke(keyEvent)).intValue();
-                } catch (Throwable ignored) {}
-                return keyPressed(key, scancode, modifiers);
-            } catch (Throwable ignored) {}
         }
         return false;
     }
@@ -271,6 +291,10 @@ public class ModernClickGuiScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    public boolean isInGameUi() {
+        return true;
     }
 
     public List<CategoryPanel> getPanels() {
